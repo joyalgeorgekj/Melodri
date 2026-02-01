@@ -1,0 +1,35 @@
+services:
+  server:
+    build: ./app/server
+    container_name: file-process-server
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - URL=http://localhost
+      - DIR=/app/tmp/
+    networks:
+      - internal
+  n8n:
+    image: n8nio/n8n
+    container_name: "workflow-n8n"
+    ports:
+      - "5679:5678"
+    environment:
+      # Auto-import workflows
+      - N8N_IMPORT_WORKFLOWS=true
+      - N8N_IMPORT_EXPORT_DIR=/workflows
+
+      # Required for credential safety
+      - N8N_ENCRYPTION_KEY=ipreffersmollstringasencryptionkey
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./app/n8n/workflows:/workflows
+    networks:
+      - internal
+
+networks:
+  internal:
+
+volumes:
+  n8n_data:

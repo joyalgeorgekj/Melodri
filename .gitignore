@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Environment Secrets (Crucial)
+.env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Build Outputs
+dist/
+**/dist/
+**/build/
+**/*.js.map
+
+# n8n Specific
+# Ignore n8n local data (credentials/database), but KEEP /workflows
+**/n8n/binaryData/
+**/n8n/.n8n/
+**/n8n/n8n_data/
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+*.log
