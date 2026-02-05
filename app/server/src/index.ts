@@ -6,23 +6,41 @@ import { upload } from "./middleware/fileUpload";
 import { validateFileType } from "./utils/validateFile";
 import { validateInput } from "./utils/validateInput";
 import { ffmpeg } from "./utils/ffmpeg";
-import { spawn } from "child_process";
+import { rm } from "fs/promises";
+import { errorHandle } from "./middleware/errorHandle";
+import { asyncHandler } from "./utils/asyncHandler";
 
 const app = express();
 
+// Dev ENV
 const PORT = process.env.PORT || 3000;
 const URL = process.env.URL || "http://localhost";
 
 app.use(express.json());
 
-app.post("/process", upload.single("file"), async (req, res) => {
-    let timestamp = req.body.timestamp || "00:00:00";
+// Methods
+app.post(
+    "/process",
+    upload.single("file"),
+    asyncHandler(async (req, res) => {
+        if (!req.file)
+            return res.status(400).json({
+                ok: false,
+                code: "FILE_MISSING",
+                message: "No file uploaded",
+            });
 
-    if (!req.file) return res.status(400).json({ error: "File missing" });
+        let dir = req.file.path.replace(req.file.filename, "");
 
-    try {
-        await validateFileType(req.file.path);
+        const timestamp = req.body.timestamp || "00:00:00";
+        const clean = async () =>
+            await rm(dir, { force: true, recursive: true });
+
+        res.on("finish", clean);
+        res.on("close", clean);
+
         validateInput(timestamp);
+        await validateFileType(req.file.path);
 
         const resFFMPEG = await ffmpeg(
             req.file.filename,
@@ -30,33 +48,19 @@ app.post("/process", upload.single("file"), async (req, res) => {
             timestamp,
         );
 
+        const { output } = resFFMPEG;
+
         console.log("Response from ffmpeg", resFFMPEG);
 
-        return res
-            .json({ path: req.file.path })
-            .sendFile(resFFMPEG.output, { root: "/" });
-            
-    } catch (error) {
-        if (error instanceof Error)
-            return res.status(415).json({ response: error.message });
-        else
-            return res
-                .status(500)
-                .json({ response: "An unknown error occured!", error });
-    }
-});
+        res.setHeader("Content-Type", "audio/wav");
+        return res.sendFile(output, { root: "/" });
+    }),
+);
 
-app.get("/cleanup", (req, res) => {
-    const filename = req.body.filename;
+// Middleware for Error Handle
+app.use(errorHandle);
 
-    if (!filename)
-        return res.status(500).json({ message: "Filename not found." });
-
-    spawn("rm", ["-f", process.env.OUTPUT_DIR + "/" + filename]);
-
-    return res.status(200).json({ message: "Cleanup OK" });
-});
-
+// Serving the server
 app.listen(PORT, () => {
     console.log(`Server is running at ${URL}:${PORT}`);
 });
