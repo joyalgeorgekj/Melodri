@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import path from "path";
 
 const MAX_FILESIZE = 50 * 1024 * 1024;
-const DIR = process.env.DIR || "/app/tmp"
+const DIR = process.env.DIR || "tmp/"
 
 export const upload = multer({
     storage: multer.diskStorage({
