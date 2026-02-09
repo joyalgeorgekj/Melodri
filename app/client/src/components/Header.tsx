@@ -2,7 +2,7 @@ import { useState } from "react";
 import ModeToggle from "./ModeToggle";
 
 function Header() {
-    const [isDemo, setIsDemo] = useState(false);
+    const [isDemo, setIsDemo] = useState(true);
 
     const onToggle = () => {
         setIsDemo((prev) => !prev);

@@ -1,70 +1,21 @@
-import {
-    useEffect,
-    useRef,
-    useState,
-    type MouseEvent,
-    type ReactNode,
-    type RefObject,
-} from "react";
+import { useState, type MouseEvent, type RefObject } from "react";
 import { Github, MessageSquare, AlertCircle, Play, Search } from "lucide-react";
 import Header from "./components/Header";
+import { PLATFORMS } from "./utils/platforms";
+import { useN8nRequest } from "./hooks/useN8nRequest";
+import { useMediaTimestamp } from "./hooks/useMediaTimestamp";
+import { SocialLink } from "./components/SocialLinks";
 
 export default function MelodriApp() {
     const [file, setFile] = useState<File | null>(null);
-    const [timestamp, setTimestamp] = useState<string | number>("00:00:00.000");
-    const mediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
+    const { mediaRef, timestamp, capture } = useMediaTimestamp();
+    const { loading, result, error, run } = useN8nRequest();
 
-    const formatForFFmpeg = (seconds: number): string => {
-        const date = new Date(0);
-        date.setSeconds(seconds);
-
-        const hh = date.getUTCHours().toString().padStart(2, "0");
-        const mm = date.getUTCMinutes().toString().padStart(2, "0");
-        const ss = date.getUTCSeconds().toString().padStart(2, "0");
-
-        // Extract milliseconds from the decimal remainder
-        const ms = Math.floor((seconds % 1) * 1000)
-            .toString()
-            .padStart(3, "0");
-
-        return `${hh}:${mm}:${ss}.${ms}`;
-    };
-
-    // Example: 125.45s -> "00:02:05.450"
-
-    function captureTimestamp(
-        e: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
-    ) {
+    const submit = (e: MouseEvent) => {
         e.preventDefault();
-        if (mediaRef.current) {
-            const currentTime = mediaRef.current.currentTime;
-            setTimestamp(formatForFFmpeg(currentTime));
-            console.log("Start point set at:", currentTime, "seconds");
-            mediaRef.current.currentTime = currentTime;
-        }
-    }
-
-    function SocialLink({
-        icon,
-        label,
-        href,
-    }: {
-        icon: ReactNode;
-        label: string;
-        href?: string;
-    }) {
-        return (
-            <a
-                href={href ?? ""}
-                className="flex items-center gap-2 px-4 py-2 border border-neutral-900 rounded-sm text-neutral-400 hover:text-neutral-200 hover:border-neutral-700 transition-all text-sm font-medium"
-            >
-                {icon}
-                {label}
-            </a>
-        );
-    }
-
-    useEffect(() => console.log(file), [file]);
+        capture();
+        if (file) run(file, timestamp);
+    };
 
     return (
         <div className="min-h-screen text-neutral-200 font-sans selection:bg-neutral-200 selection:text-black">
@@ -133,7 +84,12 @@ export default function MelodriApp() {
                                 <div className="aspect-video bg-black/60 border border-neutral-800 flex items-center justify-center">
                                     {file !== null &&
                                     file.type.split("/")[0] === "audio" ? (
-                                        <audio ref={mediaRef} controls>
+                                        <audio
+                                            ref={
+                                                mediaRef as RefObject<HTMLAudioElement>
+                                            }
+                                            controls
+                                        >
                                             <source
                                                 src={URL.createObjectURL(file)}
                                                 type={file.type}
@@ -170,13 +126,90 @@ export default function MelodriApp() {
                                 </div>
 
                                 <button
-                                    className="w-full bg-neutral-200 text-black py-5 font-black transition-colors uppercase tracking-widest hover:bg-neutral-200/75 hover:scale-95 ease-in-out cursor-pointer flex items-center justify-center gap-3"
-                                    onClick={(e) => captureTimestamp(e)}
+                                    disabled={loading}
+                                    className={`w-full py-5 font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all
+                                        ${
+                                            loading
+                                                ? "bg-neutral-500 cursor-not-allowed"
+                                                : "bg-neutral-200 text-black hover:bg-neutral-200/75 hover:scale-95"
+                                        }
+                                    `}
+                                    onClick={submit}
                                     type="button"
                                 >
-                                    <Search size={20} />
-                                    Find Song
+                                    {loading ? (
+                                        "Analyzing…"
+                                    ) : (
+                                        <>
+                                            <Search size={20} />
+                                            Find Song
+                                        </>
+                                    )}
                                 </button>
+
+                                {/* RESPONSE PANEL */}
+                                {loading && (
+                                    <div className="mt-6 p-4 border border-neutral-800 bg-black/60 text-neutral-300 text-sm font-mono animate-pulse">
+                                        Analyzing audio…
+                                    </div>
+                                )}
+
+                                {error && (
+                                    <div className="mt-6 p-4 border border-red-500/40 bg-red-500/10 text-red-300 text-sm font-mono">
+                                        {error}
+                                    </div>
+                                )}
+
+                                {result && (
+                                    <div className="mt-6 p-6 border border-neutral-700 bg-black/70 space-y-3">
+                                        <div className="text-xs uppercase tracking-widest text-neutral-500">
+                                            Identified Track
+                                        </div>
+
+                                        <div className="text-2xl font-black tracking-tight">
+                                            {result.song ?? "Unknown"}
+                                        </div>
+
+                                        <div className="text-neutral-400 font-medium">
+                                            {result.artist ?? "Unknown Artist"}
+                                        </div>
+
+                                        {result.song && (
+                                            <div className="text-xs text-neutral-500">
+                                                Confidence:{" "}
+                                                {(
+                                                    result.confidence * 100
+                                                ).toFixed(0)}
+                                                %
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-row gap-4">
+                                            {Object.keys(PLATFORMS).map(
+                                                (val, ind) => (
+                                                    <a
+                                                        target="_blank"
+                                                        href={
+                                                            typeof result.song ===
+                                                            "string"
+                                                                ? PLATFORMS[
+                                                                      val as keyof typeof PLATFORMS
+                                                                  ] +
+                                                                  result.song.replaceAll(
+                                                                      " ",
+                                                                      "%20",
+                                                                  )
+                                                                : result.song
+                                                        }
+                                                        key={ind}
+                                                    >
+                                                        {val}
+                                                    </a>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
