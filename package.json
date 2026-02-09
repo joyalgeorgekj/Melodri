@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "docker:up": "sudo docker compose up -d",
+    "docker:up": "sudo docker compose up -d --force-recreate",
     "docker:down": "sudo docker compose down",
     "rm:server": "sudo docker rmi melodri-server:latest"
   },
