@@ -23,7 +23,6 @@ const ModeToggle = ({
                     className="sr-only peer"
                     checked={!isDemo}
                     onChange={onToggle}
-                    disabled
                 />
 
                 {/* The Track (Background) */}
