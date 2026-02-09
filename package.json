@@ -4,15 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down",
-    "rm:server": "docker rmi melodri-server:latest"
+    "docker:up": "sudo docker compose up -d",
+    "docker:down": "sudo docker compose down",
+    "rm:server": "sudo docker rmi melodri-server:latest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.28.2",
-  "dependencies": {
-    "fs": "0.0.1-security"
-  }
+  "packageManager": "pnpm@10.28.2"
 }
