@@ -1,0 +1,447 @@
+{
+  "name": "Melodri",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start",
+        "responseMode": "responseNode",
+        "options": {
+          "binaryPropertyName": "user_file"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        48
+      ],
+      "id": "e789584c-1ff0-4b19-8f47-b2dc651c11d0",
+      "name": "Webhook",
+      "webhookId": "4067c260-ce90-4f2b-a8d4-d5f9312b9e5b"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"source\": \"server\",\n  \"code\": {{ $json.response.status }},\n  \"message\": \"{{ $json.response.message || 'Processing failed' }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        -48
+      ],
+      "id": "c2baec12-b2dd-4543-b269-6391b6f96fef",
+      "name": "Server Error"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://server:4000/process",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "user_file0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        224,
+        48
+      ],
+      "id": "17e2ae60-85d5-4889-8209-ac2e0e86423e",
+      "name": "FFMPEG Worker - Server",
+      "retryOnFail": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3376f35a-beef-4dfd-90ff-44ad8b206698",
+              "leftValue": "={{ $json.error.status }}",
+              "rightValue": 400,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "943d2052-18e6-4274-82e2-f19bb29c68bb",
+              "leftValue": "={{ $json.error.status }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        48
+      ],
+      "id": "da40fec1-b7c2-4d80-9f7f-6d312ff880b6",
+      "name": "Validate FFMPEG Worker Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($input.first().json.error.status >= 400) return { response: {status: $input.first().json.error.status, ...JSON.parse($input.first().json.error.message.replace(/\\\\/g,\"\").replace($input.first().json.error.status + \" - \", '').replace(/^\\\"/g, '').replace(/\"$/g, '').replace(',', ',\\n'))}}\n\nreturn $input.all()"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -48
+      ],
+      "id": "ea4d5804-8a60-4113-8068-3f9dffb268da",
+      "name": "Failure Extraction to JSON"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3-flash-preview",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3-flash-preview"
+        },
+        "text": "You are an audio identification system.\n\nYour task:\nIdentify the music in the provided audio clip.\n\nRules:\n- Return ONLY valid JSON\n- Do NOT include markdown\n- Do NOT include code blocks\n- Do NOT include explanations\n- Do NOT include extra text\n\nIf the song cannot be identified with confidence, return null fields.\n\nRequired JSON schema:\n{\n  \"song\": string | null,\n  \"artist\": string | null,\n  \"confidence\": number, \n}\n\nThe response must be valid JSON and nothing else.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        144
+      ],
+      "id": "8a80c182-2147-42a3-9b73-e8c83bbb6520",
+      "name": "Gemini AI Worker",
+      "retryOnFail": false,
+      "notesInFlow": false,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "HS4AZ8aNak6plIXd",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2e679b3-5d29-4169-90d1-adb0f2c4236d",
+              "name": "content.parts[0].text",
+              "value": "={{ $json.content.parts[0].text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        48
+      ],
+      "id": "1c8d3b2b-d7b8-4c7f-8d68-4741950e8ff4",
+      "name": "AI Response Filter"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn {response: JSON.parse($input.first().json.content.parts[0].text.replace(/```json\\n?|\\n?```/g, '') // remove markdown fences\n        .replace(/\\n/g, ' ') // flatten newlines\n        .replace(/,\\s*([}\\]])/g, '$1') // remove trailing commas\n        .trim())};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        48
+      ],
+      "id": "0bec6e65-332a-4741-9c18-50be7351a076",
+      "name": "AI Response String to JSON Converter"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8a342337-d6da-4b94-80e3-db6898ad7cd4",
+              "leftValue": "={{ $json.response.song }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1568,
+        48
+      ],
+      "id": "9a5ffe94-da7b-47b6-bd7e-7d888e83cddb",
+      "name": "AI Response JSON Validation"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1792,
+        -48
+      ],
+      "id": "f289e289-2fba-4843-b57e-e4f49adf4808",
+      "name": "Success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"source\": \"N8N Gemini AI Worker\",\n  \"code\": 404,\n  \"message\": \"Identification Failed\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1792,
+        144
+      ],
+      "id": "f8ce2e15-2f55-4e22-a8af-17074e7d8269",
+      "name": "Send Error from AI"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "13330c5d-4f75-4c19-b701-cc00a0b337ba",
+              "leftValue": "={{ $json.content.parts[0].text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        144
+      ],
+      "id": "ed56862d-38ee-42a6-b7d0-811b40187aa2",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"source\": \"N8N Gemini AI Worker\",\n  \"code\": 500,\n  \"message\": \"AI Worker is down, Try again later\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        240
+      ],
+      "id": "fc373b46-457d-433f-a262-f3b6226dc9c6",
+      "name": "Send AI Failure"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "FFMPEG Worker - Server",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Server Error": {
+      "main": [
+        []
+      ]
+    },
+    "FFMPEG Worker - Server": {
+      "main": [
+        [
+          {
+            "node": "Validate FFMPEG Worker Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate FFMPEG Worker Response": {
+      "main": [
+        [
+          {
+            "node": "Failure Extraction to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gemini AI Worker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failure Extraction to JSON": {
+      "main": [
+        [
+          {
+            "node": "Server Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Worker": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Response Filter": {
+      "main": [
+        [
+          {
+            "node": "AI Response String to JSON Converter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Response String to JSON Converter": {
+      "main": [
+        [
+          {
+            "node": "AI Response JSON Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Response JSON Validation": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error from AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Response Filter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send AI Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "a2661368-fdb3-47ef-b545-e5100a3222c2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2b90dc4e9989d6c8a50548106fda3808cb5c5595865dc8d965820cd8d20ced78"
+  },
+  "id": "tVxbRnfj7XLGZqs4WN0sY",
+  "tags": []
+}
