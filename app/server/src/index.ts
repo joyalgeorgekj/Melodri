@@ -4,11 +4,12 @@ dotenv.config();
 import express from "express";
 import { upload } from "./middleware/fileUpload";
 import { validateFileType } from "./utils/validateFile";
-import { validateInput } from "./utils/validateInput";
+import { validateTimestamp } from "./utils/validateTimestamp";
 import { ffmpeg } from "./utils/ffmpeg";
 import { rm } from "fs/promises";
 import { errorHandle } from "./middleware/errorHandle";
 import { asyncHandler } from "./utils/asyncHandler";
+import path from "path";
 
 const app = express();
 
@@ -30,30 +31,36 @@ app.post(
                 message: "No file uploaded",
             });
 
-        let dir = req.file.path.replace(req.file.filename, "");
+        let dir = path.dirname(req.file.path);
 
-        const timestamp = req.body.timestamp || "00:00:00";
-        const clean = async () =>
+        const timestamp = req.body.timestamp || "00:00:00.000";
+
+        let cleaned = false;
+        const clean = async () => {
+            if (cleaned) return;
+            cleaned = true;
             await rm(dir, { force: true, recursive: true });
+        };
 
         res.on("finish", clean);
         res.on("close", clean);
 
-        validateInput(timestamp);
+        validateTimestamp(timestamp);
+        console.log("Path", req.file.path);
         await validateFileType(req.file.path);
 
-        const resFFMPEG = await ffmpeg(
+        const processed = await ffmpeg(
             req.file.filename,
             req.file.path,
             timestamp,
         );
 
-        const { output } = resFFMPEG;
+        const { output } = processed;
 
-        console.log("Response from ffmpeg", resFFMPEG);
+        console.log("Response from ffmpeg", processed);
 
         res.setHeader("Content-Type", "audio/wav");
-        return res.sendFile(output, { root: "/" });
+        return res.sendFile(output, {root: '/'});
     }),
 );
 
